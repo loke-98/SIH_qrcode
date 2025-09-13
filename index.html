@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 15px; background: #f4f7f8; }
+        header { display: flex; flex-direction: column; align-items: center; background: #007bff; color: white; padding: 15px; border-radius: 10px; }
+        header div { margin-top: 5px; text-align: center; }
+        h1 { text-align: center; margin: 15px 0; }
+        form { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input, button { width: 100%; margin: 8px 0; padding: 12px; border-radius: 5px; border: 1px solid #ddd; }
+        button { background-color: #28a745; color: white; border: none; cursor: pointer; font-size: 16px; }
+        #qrCode { text-align: center; margin-top: 20px; }
+        canvas { width: 80% !important; max-width: 250px; }
+        #result { text-align: center; font-weight: bold; margin-top: 10px; }
+        .btn-small { background-color: #dc3545; margin-top: 10px; }
+        .btn-reset { background-color: #6c757d; }
+    </style>
+</head>
+<body>
+    <header>
+        <div id="userInfo"></div>
+        <div>
+            <button class="btn-small" onclick="logout()">Logout</button>
+            <button class="btn-reset" onclick="resetSystem()">Reset System</button>
+        </div>
+    </header>
+
+    <h1>Enter Produce Data</h1>
+    <form id="produceForm">
+        <input type="text" id="farmerId" placeholder="Farmer ID" required />
+        <input type="text" id="quality" placeholder="Quality" required />
+        <input type="number" id="quantity" placeholder="Quantity" required />
+        <input type="number" id="price" placeholder="Price (AIML simulated)" required />
+        <input type="text" id="warehouseId" placeholder="Warehouse ID (auto-filled)" readonly />
+        <button type="submit">Submit Produce Data</button>
+    </form>
+
+    <p id="result"></p>
+
+    <div id="qrCode">
+        <h3>Your Warehouse QR Code:</h3>
+        <canvas id="qrCanvas"></canvas>
+        <p>Scan this QR to view warehouse supply chain</p>
+    </div>
+
+    <script>
+        function logout() {
+            localStorage.removeItem('loggedWarehouse');
+            window.location.href = 'warehouse-register.html';
+        }
+
+        function resetSystem() {
+            if (confirm('Are you sure you want to reset all data?')) {
+                localStorage.clear();
+                alert('System reset.');
+                window.location.href = 'warehouse-register.html';
+            }
+        }
+
+        function calculateHash(index, timestamp, data, previousHash) {
+            return CryptoJS.SHA256(index + timestamp + JSON.stringify(data) + previousHash).toString();
+        }
+
+        function createGenesisBlock() {
+            return {
+                index: 0,
+                timestamp: new Date().toISOString(),
+                data: { role: "system", action: "Genesis Block" },
+                previousHash: "0",
+                hash: calculateHash(0, new Date().toISOString(), { role: "system", action: "Genesis Block" }, "0")
+            };
+        }
+
+        const warehouse = JSON.parse(localStorage.getItem('loggedWarehouse'));
+        if (!warehouse) window.location.href = 'warehouse-register.html';
+        else {
+            document.getElementById('userInfo').innerText = `Warehouse: ${warehouse.warehouseName} (Warehouse ID: ${warehouse.warehouseId})`;
+            document.getElementById('warehouseId').value = warehouse.warehouseId;
+
+            // GitHub Pages URL - replace with your repository URL
+            const baseUrl = "https://your-username.github.io/SMARTFARM";
+            const qrUrl = `${baseUrl}/warehouse-view.html?warehouse_id=${warehouse.warehouseId}`;
+
+            QRCode.toCanvas(document.getElementById('qrCanvas'), qrUrl, { width: 200 });
+        }
+
+        document.getElementById('produceForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const farmerId = document.getElementById('farmerId').value;
+            const quality = document.getElementById('quality').value;
+            const quantity = document.getElementById('quantity').value;
+            const price = document.getElementById('price').value;
+            const warehouseId = warehouse.warehouseId;
+
+            let blockchain = JSON.parse(localStorage.getItem('blockchain')) || [createGenesisBlock()];
+            const index = blockchain.length;
+            const timestamp = new Date().toISOString();
+            const data = { role: "warehouse", farmerId, quality, quantity, price, warehouseId };
+            const previousHash = blockchain[blockchain.length - 1].hash;
+            const hash = calculateHash(index, timestamp, data, previousHash);
+
+            blockchain.push({ index, timestamp, data, previousHash, hash });
+            localStorage.setItem('blockchain', JSON.stringify(blockchain));
+
+            document.getElementById('result').innerText = 'Produce data saved successfully!';
+            document.getElementById('produceForm').reset();
+            document.getElementById('warehouseId').value = warehouseId;
+        });
+    </script>
+</body>
+</html>
